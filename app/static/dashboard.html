@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Issue Tracker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        .navbar {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--glass-border);
+            padding: var(--spacing-md) 0;
+            margin-bottom: var(--spacing-2xl);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .navbar-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .navbar-brand {
+            font-size: 1.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary-300), var(--accent-light));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .navbar-user {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-md);
+        }
+
+        .user-info {
+            text-align: right;
+        }
+
+        .user-name {
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .user-role {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            text-transform: capitalize;
+        }
+
+        .tabs {
+            display: flex;
+            gap: var(--spacing-sm);
+            margin-bottom: var(--spacing-xl);
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .tab {
+            padding: var(--spacing-md) var(--spacing-lg);
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+        }
+
+        .tab:hover {
+            color: var(--text-primary);
+        }
+
+        .tab.active {
+            color: var(--primary-300);
+            border-bottom-color: var(--primary-400);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .action-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-lg);
+            flex-wrap: wrap;
+            gap: var(--spacing-md);
+        }
+
+        .filters {
+            display: flex;
+            gap: var(--spacing-sm);
+            flex-wrap: wrap;
+        }
+
+        .filter-select {
+            padding: var(--spacing-sm) var(--spacing-md);
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            color: var(--text-primary);
+            font-size: 0.9rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: var(--spacing-2xl);
+            color: var(--text-secondary);
+        }
+
+        .empty-state-icon {
+            font-size: 4rem;
+            margin-bottom: var(--spacing-md);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-xl);
+            padding: var(--spacing-2xl);
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--spacing-lg);
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: color var(--transition-fast);
+        }
+
+        .modal-close:hover {
+            color: var(--text-primary);
+        }
+
+        .issue-row {
+            cursor: pointer;
+        }
+
+        .issue-row:hover {
+            background: var(--bg-hover) !important;
+        }
+
+        .note-item {
+            padding: var(--spacing-md);
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-md);
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .note-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: var(--spacing-xs);
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .note-text {
+            color: var(--text-primary);
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="container navbar-content">
+            <div class="navbar-brand">🔧 Issue Tracker</div>
+            <div class="navbar-links" style="display: flex; gap: 20px;">
+                <!-- Links moved to tabs -->
+            </div>
+            <div class="navbar-user">
+                <button class="theme-toggle" id="themeToggle" onclick="utils.toggleTheme()"
+                    title="Switch to Light Mode">☀️</button>
+                <div class="user-info">
+                    <div class="user-name" id="userName"></div>
+                    <div class="user-role" id="userRole"></div>
+                </div>
+                <button class="btn btn-secondary btn-sm" onclick="api.logout()">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container">
+        <!-- Stats Cards -->
+
+
+        <!-- Tabs -->
+        <div class="tabs" id="tabs">
+            <button class="tab active" data-tab="all-issues">Recent Issues</button>
+            <button class="tab" data-tab="my-issues" id="myIssuesTab">My Issues</button>
+            <button class="tab" data-tab="machines" id="machinesTab">Machines</button>
+            <button class="tab" data-tab="kpis" id="kpisTab">KPIs & Analytics</button>
+            <button class="tab hidden" data-tab="users" id="usersTab">Users</button>
+        </div>
+
+        <!-- Tab Content: Recent Issues -->
+        <div class="tab-content active" id="all-issues">
+            <div class="action-bar">
+                <button class="btn btn-primary" onclick="openCreateIssueModal()" id="createIssueBtn">
+                    + Report Issue
+                </button>
+                <button class="btn btn-secondary" onclick="loadIssues(); loadStats();" title="Refresh data">
+                    🔄 Refresh
+                </button>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="stats-grid" id="statsGrid"
+                style="margin-bottom: var(--spacing-xl); display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--spacing-lg);">
+                <!-- Stats will be loaded here -->
+            </div>
+
+            <!-- Issues List -->
+            <div class="col-md-12">
+                <div class="glass-card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Recent Issues</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-container">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Issue ID</th>
+                                        <th>Machine</th>
+                                        <th>Reporter</th>
+                                        <th>Declaration Time</th>
+                                        <th>Accepted Time</th>
+                                        <th>Reaction Time</th>
+                                        <th>Resolution Time</th>
+                                        <th>Urgency</th>
+                                        <th>Status</th>
+                                        <th>Assigned To</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="issuesTableBody">
+                                    <!-- Issues will be loaded here -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <!-- Pagination Controls -->
+
+                    </div>
+                </div>
+                <div id="issuesEmptyState" class="empty-state hidden">
+                    <div class="empty-state-icon">📋</div>
+                    <h3>No issues found</h3>
+                    <p>Create a new issue to get started</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Content: My Issues -->
+        <div class="tab-content" id="my-issues">
+            <div class="action-bar">
+                <div class="filters">
+                    <input type="date" class="filter-select" id="historyDateFilter">
+                    <select class="filter-select" id="historyMachineFilter">
+                        <option value="">All Machines</option>
+                        <!-- Machines will be loaded here -->
+                    </select>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-success" onclick="exportHistory('excel')">
+                        📊 Export Excel
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="exportHistory('pdf')">
+                        📄 Export PDF
+                    </button>
+
+                </div>
+            </div>
+            <div class="glass-card">
+                <div class="table-container">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Issue ID</th>
+                                <th>Machine</th>
+                                <th>Reporter</th>
+                                <th>Declaration Time</th>
+                                <th>Accepted Time</th>
+                                <th>Reaction Time</th>
+                                <th>Resolution Time</th>
+                                <th>Urgency</th>
+                                <th>Status</th>
+                                <th>Assigned To</th>
+                            </tr>
+                        </thead>
+                        <tbody id="myIssuesTableBody">
+                            <!-- My issues will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="myIssuesEmptyState" class="empty-state hidden">
+                    <div class="empty-state-icon">📋</div>
+                    <h3>No issues assigned to you</h3>
+                </div>
+                <!-- Pagination Controls for History -->
+                <nav aria-label="History pagination" class="mt-3 pagination-container" id="history-pagination-controls">
+                    <ul class="pagination justify-content-center">
+                        <!-- Pagination will be generated here -->
+                    </ul>
+                </nav>
+            </div>
+        </div>
+
+        <!-- Tab Content: Machines -->
+        <div class="tab-content" id="machines">
+            <div class="action-bar">
+                <h2>Manage Machines</h2>
+                <button class="btn btn-primary" onclick="openCreateMachineModal()">
+                    + Add Machine
+                </button>
+            </div>
+
+            <div class="glass-card">
+                <div class="table-container">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Machine ID</th>
+                                <th>Name</th>
+                                <th>Location</th>
+                                <th>Status</th>
+                                <th>Created At</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="machinesTableBody">
+                            <!-- Machines will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="machinesEmptyState" class="empty-state hidden">
+                    <div class="empty-state-icon">🏭</div>
+                    <h3>No machines found</h3>
+                    <p>Add a new machine to get started</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Content: Users -->
+        <div class="tab-content" id="users">
+            <div class="action-bar">
+                <h2>Manage Users</h2>
+                <button class="btn btn-primary" onclick="openCreateUserModal()">
+                    + Add User
+                </button>
+            </div>
+
+            <div class="glass-card">
+                <div class="table-container">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>User ID</th>
+                                <th>Matricule</th>
+                                <th>Name</th>
+                                <th>Service</th>
+                                <th>Role</th>
+                                <th>Status</th>
+                                <th>Created At</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTableBody">
+                            <!-- Users will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Content: KPIs -->
+        <div class="tab-content" id="kpis">
+            <div class="action-bar">
+                <h2>📊 Key Performance Indicators</h2>
+                <button class="btn btn-sm btn-outline-primary" onclick="loadKPIs()">
+                    <i class="bi bi-arrow-clockwise"></i> Refresh Data
+                </button>
+            </div>
+
+            <!-- Summary Metrics -->
+            <div class="metrics-grid" id="metricsGrid"
+                style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--spacing-lg); margin-bottom: var(--spacing-2xl);">
+                <!-- Metrics will be loaded here -->
+            </div>
+
+            <!-- Charts -->
+            <div class="chart-grid"
+                style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: var(--spacing-xl); margin-bottom: var(--spacing-2xl);">
+                <div class="glass-card">
+                    <h3>Issues by Urgency</h3>
+                    <div class="chart-container" style="position: relative; height: 300px;">
+                        <canvas id="urgencyChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="glass-card">
+                    <h3>Issues by Status</h3>
+                    <div class="chart-container" style="position: relative; height: 300px;">
+                        <canvas id="statusChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-card" style="margin-bottom: var(--spacing-xl);">
+                <h3>Issues by Machine</h3>
+                <div class="chart-container" style="position: relative; height: 400px;">
+                    <canvas id="machineChart"></canvas>
+                </div>
+            </div>
+
+            <div class="glass-card" style="margin-bottom: var(--spacing-xl);">
+                <h3>⚡ Technician Reaction Time (This Month)</h3>
+                <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: var(--spacing-md);">
+                    Average time from issue creation to acceptance by technician
+                </p>
+                <div class="chart-container" style="position: relative; height: 400px;">
+                    <canvas id="reactionTimeChart"></canvas>
+                </div>
+            </div>
+
+            <div class="glass-card">
+                <h3>Technician Performance</h3>
+                <div class="chart-container" style="position: relative; height: 400px;">
+                    <canvas id="technicianChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Create User Modal -->
+    <div class="modal" id="createUserModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Create New User</h2>
+                <button class="modal-close" onclick="closeCreateUserModal()">×</button>
+            </div>
+            <form id="createUserForm">
+            <div class="form-group">
+                <label class="form-label" for="userMatricule">Matricule Number</label>
+                <input type="text" id="userMatricule" class="form-input" placeholder="e.g. M12345" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="userNameInput">Full Name</label>
+                <input type="text" id="userNameInput" class="form-input" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="userService">Service</label>
+                <select id="userService" class="form-select" required>
+                    <option value="maintenance">Maintenance</option>
+                    <option value="production">Production</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="userRoleInput">Role / Position</label>
+                <select id="userRoleInput" class="form-select" required>
+                    <option value="technician">Technician</option>
+                    <option value="team_leader">Team Leader</option>
+                    <option value="supervisor">Supervisor</option>
+                    <option value="manager">Manager</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="userPassword">Password</label>
+                <input type="password" id="userPassword" class="form-input" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="userEmail">Email (Optional)</label>
+                <input type="email" id="userEmail" class="form-input">
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="btn btn-primary">Create User</button>
+                <button type="button" class="btn btn-secondary" onclick="closeCreateUserModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+    </div>
+
+    <!-- Update User Modal -->
+    <div class="modal" id="updateUserModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Update User</h2>
+                <button class="modal-close" onclick="closeUpdateUserModal()">×</button>
+            </div>
+            <form id="updateUserForm">
+                <input type="hidden" id="updateUserId">
+                <div class="form-group">
+                    <label class="form-label" for="updateUserMatricule">Matricule Number</label>
+                    <input type="text" id="updateUserMatricule" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="updateUserName">Full Name</label>
+                    <input type="text" id="updateUserName" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="updateUserService">Service</label>
+                    <select id="updateUserService" class="form-select" required>
+                        <option value="maintenance">Maintenance</option>
+                        <option value="production">Production</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="updateUserRole">Role / Position</label>
+                    <select id="updateUserRole" class="form-select" required>
+                        <option value="technician">Technician</option>
+                        <option value="team_leader">Team Leader</option>
+                        <option value="supervisor">Supervisor</option>
+                        <option value="manager">Manager</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="updateUserEmail">Email (Optional)</label>
+                    <input type="email" id="updateUserEmail" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="updateUserStatus">Status</label>
+                    <select id="updateUserStatus" class="form-select">
+                        <option value="true">Active</option>
+                        <option value="false">Inactive</option>
+                    </select>
+                </div>
+                <div class="flex gap-2">
+                    <button type="submit" class="btn btn-primary">Update User</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeUpdateUserModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Create Machine Modal -->
+    <div id="createMachineModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add New Machine</h2>
+                <button class="modal-close" onclick="closeCreateMachineModal()">×</button>
+            </div>
+            <form id="createMachineForm">
+                <div class="form-group">
+                    <label class="form-label" for="machineNameInput">Machine Name</label>
+                    <input type="text" id="machineNameInput" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="machineLocation">Location</label>
+                    <input type="text" id="machineLocation" class="form-input" placeholder="e.g. Zone A">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="machineStatus">Status</label>
+                    <select id="machineStatus" class="form-select" required>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                </div>
+                <div class="flex gap-2">
+                    <button type="submit" class="btn btn-primary">Add Machine</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeCreateMachineModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Machine Modal -->
+    <div id="editMachineModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Machine</h2>
+                <button class="modal-close" onclick="closeEditMachineModal()">×</button>
+            </div>
+            <form id="editMachineForm">
+                <input type="hidden" id="editMachineId">
+                <div class="form-group">
+                    <label class="form-label" for="editMachineName">Machine Name</label>
+                    <input type="text" id="editMachineName" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="editMachineLocation">Location</label>
+                    <input type="text" id="editMachineLocation" class="form-input" placeholder="e.g. Zone A">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="editMachineStatus">Status</label>
+                    <select id="editMachineStatus" class="form-select">
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                        <option value="maintenance">Maintenance</option>
+                    </select>
+                </div>
+                <div class="flex gap-2">
+                    <button type="submit" class="btn btn-primary">Update Machine</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeEditMachineModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Create Issue Modal -->
+    <div class="modal" id="createIssueModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Report New Issue</h2>
+                <button class="modal-close" onclick="closeCreateIssueModal()">×</button>
+            </div>
+            <form id="createIssueForm">
+                <div class="form-group">
+                    <label class="form-label" for="machineId">Machine ID</label>
+                    <input type="text" id="machineId" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="description">Description</label>
+                    <textarea id="description" class="form-textarea" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="urgency">Urgency</label>
+                    <select id="urgency" class="form-select" required>
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                    </select>
+                </div>
+                <div class="flex gap-2">
+                    <button type="submit" class="btn btn-primary">Create Issue</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeCreateIssueModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Issue Details Modal -->
+    <div class="modal" id="issueDetailsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="issueDetailsTitle">Issue Details</h2>
+                <button class="modal-close" onclick="closeIssueDetailsModal()">×</button>
+            </div>
+            <div id="issueDetailsContent">
+                <!-- Issue details will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+    <script src="js/dashboard.js"></script>
+    <script src="js/machine_edit.js"></script>
+    <script>
+        // Setup edit machine form handler
+        document.getElementById('editMachineForm').addEventListener('submit', handleEditMachine);
+    </script>
+</body>
+
+</html>

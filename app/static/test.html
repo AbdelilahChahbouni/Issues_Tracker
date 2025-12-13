@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+
+        .test-section {
+            background: #2a2a2a;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+
+        button {
+            background: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        button:hover {
+            background: #45a049;
+        }
+
+        .result {
+            background: #1a1a1a;
+            padding: 15px;
+            margin-top: 10px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        .error {
+            color: #ff6b6b;
+        }
+
+        .success {
+            color: #51cf66;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🔧 Issue Tracker API Test</h1>
+
+    <div class="test-section">
+        <h2>1. Test Login</h2>
+        <button onclick="testLogin()">Test Login (PROD001)</button>
+        <div id="loginResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>2. Test Get Issues</h2>
+        <button onclick="testGetIssues()">Get Issues (requires login first)</button>
+        <div id="issuesResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>3. Test Create Issue</h2>
+        <button onclick="testCreateIssue()">Create Issue (requires login first)</button>
+        <div id="createResult" class="result"></div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:5002';
+        let token = null;
+
+        function log(elementId, message, isError = false) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = 'result ' + (isError ? 'error' : 'success');
+        }
+
+        async function testLogin() {
+            try {
+                log('loginResult', 'Testing login...');
+
+                const response = await fetch(`${API_URL}/api/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        user_id: 'PROD001',
+                        password: 'password123'
+                    })
+                });
+
+                console.log('Response status:', response.status);
+                console.log('Response headers:', response.headers);
+
+                const text = await response.text();
+                console.log('Response text:', text);
+
+                let data;
+                try {
+                    data = JSON.parse(text);
+                } catch (e) {
+                    log('loginResult', `JSON Parse Error:\n${e.message}\n\nResponse:\n${text}`, true);
+                    return;
+                }
+
+                if (response.ok) {
+                    token = data.token;
+                    log('loginResult', `✅ Login successful!\n\nToken: ${token.substring(0, 50)}...\n\nUser: ${JSON.stringify(data.user, null, 2)}`);
+                } else {
+                    log('loginResult', `❌ Login failed:\n${JSON.stringify(data, null, 2)}`, true);
+                }
+            } catch (error) {
+                log('loginResult', `❌ Network Error:\n${error.message}\n${error.stack}`, true);
+            }
+        }
+
+        async function testGetIssues() {
+            if (!token) {
+                log('issuesResult', '❌ Please login first!', true);
+                return;
+            }
+
+            try {
+                log('issuesResult', 'Fetching issues...');
+
+                const response = await fetch(`${API_URL}/api/issues`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const text = await response.text();
+                console.log('Issues response:', text);
+
+                let data;
+                try {
+                    data = JSON.parse(text);
+                } catch (e) {
+                    log('issuesResult', `JSON Parse Error:\n${e.message}\n\nResponse:\n${text}`, true);
+                    return;
+                }
+
+                if (response.ok) {
+                    log('issuesResult', `✅ Got ${data.count} issues:\n\n${JSON.stringify(data.issues, null, 2)}`);
+                } else {
+                    log('issuesResult', `❌ Error:\n${JSON.stringify(data, null, 2)}`, true);
+                }
+            } catch (error) {
+                log('issuesResult', `❌ Network Error:\n${error.message}`, true);
+            }
+        }
+
+        async function testCreateIssue() {
+            if (!token) {
+                log('createResult', '❌ Please login first!', true);
+                return;
+            }
+
+            try {
+                log('createResult', 'Creating issue...');
+
+                const response = await fetch(`${API_URL}/api/issues`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        machine_id: 'TEST-001',
+                        description: 'Test issue from API test page',
+                        urgency: 'medium'
+                    })
+                });
+
+                const text = await response.text();
+                console.log('Create response:', text);
+
+                let data;
+                try {
+                    data = JSON.parse(text);
+                } catch (e) {
+                    log('createResult', `JSON Parse Error:\n${e.message}\n\nResponse:\n${text}`, true);
+                    return;
+                }
+
+                if (response.ok) {
+                    log('createResult', `✅ Issue created successfully:\n\n${JSON.stringify(data, null, 2)}`);
+                } else {
+                    log('createResult', `❌ Error:\n${JSON.stringify(data, null, 2)}`, true);
+                }
+            } catch (error) {
+                log('createResult', `❌ Network Error:\n${error.message}`, true);
+            }
+        }
+    </script>
+</body>
+
+</html>

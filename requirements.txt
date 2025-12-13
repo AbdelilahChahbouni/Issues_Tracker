@@ -1,0 +1,15 @@
+Flask==3.0.0
+Flask-CORS==4.0.0
+Flask-SocketIO==5.3.5
+Flask-SQLAlchemy==3.1.1
+SQLAlchemy==2.0.23
+PyJWT==2.8.0
+bcrypt==4.1.2
+python-dotenv==1.0.0
+python-engineio==4.8.0
+python-socketio==5.10.0
+qrcode==7.4.2
+Pillow==10.1.0
+pandas==2.1.4
+openpyxl==3.1.2
+fpdf==1.7.2

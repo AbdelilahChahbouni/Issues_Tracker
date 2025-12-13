@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Issue Tracker - Login</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+    <style>
+        .login-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: var(--spacing-lg);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Animated Background */
+        .login-container::before {
+            content: '';
+            position: absolute;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, var(--primary-600) 0%, transparent 70%);
+            top: -250px;
+            right: -250px;
+            opacity: 0.3;
+            animation: float 20s ease-in-out infinite;
+        }
+
+        .login-container::after {
+            content: '';
+            position: absolute;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
+            bottom: -200px;
+            left: -200px;
+            opacity: 0.2;
+            animation: float 15s ease-in-out infinite reverse;
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translate(0, 0) rotate(0deg);
+            }
+
+            33% {
+                transform: translate(30px, -30px) rotate(120deg);
+            }
+
+            66% {
+                transform: translate(-20px, 20px) rotate(240deg);
+            }
+        }
+
+        .login-box {
+            width: 100%;
+            max-width: 450px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: var(--spacing-2xl);
+        }
+
+        .login-header h1 {
+            background: linear-gradient(135deg, var(--primary-300), var(--accent-light));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-size: 3rem;
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .login-header p {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        .alert {
+            padding: var(--spacing-md);
+            border-radius: var(--radius-md);
+            margin-bottom: var(--spacing-lg);
+            display: none;
+        }
+
+        .alert-error {
+            background: hsla(0, 75%, 55%, 0.2);
+            border: 1px solid var(--danger);
+            color: var(--danger);
+        }
+
+        .alert-success {
+            background: hsla(140, 70%, 50%, 0.2);
+            border: 1px solid var(--success);
+            color: var(--success);
+        }
+
+        .demo-users {
+            margin-top: var(--spacing-xl);
+            padding: var(--spacing-lg);
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+        }
+
+        .demo-users h3 {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .demo-user-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: var(--spacing-sm);
+        }
+
+        .demo-user {
+            padding: var(--spacing-sm);
+            background: var(--bg-secondary);
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            border: 1px solid transparent;
+        }
+
+        .demo-user:hover {
+            background: var(--bg-hover);
+            border-color: var(--primary-400);
+            transform: translateX(4px);
+        }
+
+        .demo-user strong {
+            color: var(--primary-300);
+            display: block;
+        }
+
+        .demo-user span {
+            color: var(--text-tertiary);
+            font-size: 0.75rem;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="container navbar-content">
+            <div class="navbar-brand">🔧 Issue Tracker</div>
+            <button class="theme-toggle" id="themeToggle" onclick="utils.toggleTheme()"
+                title="Switch to Light Mode">☀️</button>
+        </div>
+    </nav>
+    <div class="login-container">
+        <div class="login-box">
+            <div class="login-header fade-in">
+                <h1>🔧 Issue Tracker</h1>
+                <p>Management Dashboard</p>
+                <p style="font-size: 0.9rem; color: var(--text-tertiary); margin-top: 0.5rem;">
+                    Supervisors & Team Leaders Only
+                </p>
+            </div>
+
+            <div class="glass-card fade-in">
+                <div id="alert" class="alert"></div>
+
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label class="form-label" for="matricule_number">Matricule Number</label>
+                        <input type="text" id="matricule_number" class="form-input"
+                            placeholder="Enter your matricule number" required autocomplete="username">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="password">Password</label>
+                        <input type="password" id="password" class="form-input" placeholder="Enter your password"
+                            required autocomplete="current-password">
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-lg" style="width: 100%;">
+                        <span id="loginButtonText">Sign In</span>
+                        <div id="loginSpinner" class="spinner" style="display: none; width: 20px; height: 20px;"></div>
+                    </button>
+
+                    <div style="text-align: center; margin-top: 1rem;">
+                        <a href="#" onclick="openRegisterModal(); return false;"
+                            style="color: var(--primary-300); text-decoration: none;">
+                            Don't have an account? Register
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Register Modal -->
+    <div class="modal" id="registerModal"
+        style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center;">
+        <div class="glass-card fade-in" style="width: 90%; max-width: 500px; position: relative;">
+            <button onclick="closeRegisterModal()"
+                style="position: absolute; top: 15px; right: 15px; background: none; border: none; color: var(--text-secondary); font-size: 1.5rem; cursor: pointer;">&times;</button>
+            <h2 style="margin-bottom: 1.5rem; text-align: center;">Create Account</h2>
+
+            <form id="registerForm">
+                <div class="form-group">
+                    <label class="form-label">Matricule Number</label>
+                    <input type="text" name="matricule_number" class="form-input" required placeholder="e.g. M12345">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Full Name</label>
+                    <input type="text" name="name" class="form-input" required placeholder="John Doe">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Service</label>
+                    <select name="service" class="form-input" required
+                        style="background: var(--bg-secondary); color: var(--text-primary);">
+                        <option value="maintenance">Maintenance</option>
+                        <option value="production">Production</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Role / Position</label>
+                    <select name="role" class="form-input" required
+                        style="background: var(--bg-secondary); color: var(--text-primary);">
+                        <option value="technician">Technician</option>
+                        <option value="team_leader">Team Leader</option>
+                        <option value="supervisor">Supervisor</option>
+                        <option value="manager">Manager</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <input type="password" name="password" class="form-input" required>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-lg" style="width: 100%;">
+                    <span id="registerButtonText">Register</span>
+                    <div id="registerSpinner" class="spinner" style="display: none; width: 20px; height: 20px;"></div>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+    <script>
+        // Initialize theme
+        document.addEventListener('DOMContentLoaded', () => {
+            utils.initTheme();
+        });
+
+        // Handle login form submission
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const matriculeNumber = document.getElementById('matricule_number').value;
+            const password = document.getElementById('password').value;
+
+            // Show loading state
+            document.getElementById('loginButtonText').style.display = 'none';
+            document.getElementById('loginSpinner').style.display = 'block';
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ matricule_number: matriculeNumber, password: password })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Store token and user info
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+
+                    // Show success message
+                    showAlert('Login successful! Redirecting...', 'success');
+
+                    // Redirect to dashboard
+                    setTimeout(() => {
+                        window.location.href = 'dashboard.html';
+                    }, 1000);
+                } else {
+                    showAlert(data.error || 'Login failed', 'error');
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                showAlert('Connection error. Please try again.', 'error');
+            } finally {
+                // Reset button state
+                document.getElementById('loginButtonText').style.display = 'inline';
+                document.getElementById('loginSpinner').style.display = 'none';
+            }
+        });
+
+        // Show alert message
+        function showAlert(message, type) {
+            const alert = document.getElementById('alert');
+            alert.textContent = message;
+            alert.className = `alert alert-${type}`;
+            alert.style.display = 'block';
+
+            if (type === 'success') {
+                setTimeout(() => {
+                    alert.style.display = 'none';
+                }, 3000);
+            }
+        }
+
+        // Check if already logged in
+        if (localStorage.getItem('token')) {
+            window.location.href = 'dashboard.html';
+        }
+
+        // Modal Functions
+        function openRegisterModal() {
+            const modal = document.getElementById('registerModal');
+            modal.style.display = 'flex';
+        }
+
+        function closeRegisterModal() {
+            const modal = document.getElementById('registerModal');
+            modal.style.display = 'none';
+        }
+
+        // Close modal on outside click
+        window.onclick = function (event) {
+            const modal = document.getElementById('registerModal');
+            if (event.target == modal) {
+                closeRegisterModal();
+            }
+        }
+
+        // Handle Register Form
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const form = e.target;
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData.entries());
+
+            // Show loading
+            document.getElementById('registerButtonText').style.display = 'none';
+            document.getElementById('registerSpinner').style.display = 'block';
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showAlert('Registration successful! Please login.', 'success');
+                    closeRegisterModal();
+                    form.reset();
+                } else {
+                    showAlert(result.error || 'Registration failed', 'error');
+                }
+            } catch (error) {
+                console.error('Registration error:', error);
+                showAlert('Connection error. Please try again.', 'error');
+            } finally {
+                document.getElementById('registerButtonText').style.display = 'inline';
+                document.getElementById('registerSpinner').style.display = 'none';
+            }
+        });
+    </script>
+</body>
+
+</html>

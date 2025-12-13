@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics - Issue Tracker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-bottom: var(--spacing-xl);
+        }
+
+        .chart-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: var(--spacing-xl);
+            margin-bottom: var(--spacing-2xl);
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: var(--spacing-lg);
+            margin-bottom: var(--spacing-2xl);
+        }
+
+        .metric-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-lg);
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--primary-300);
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .metric-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="container navbar-content">
+            <div class="navbar-brand">🔧 Issue Tracker - Analytics</div>
+            <div class="navbar-user">
+                <div class="user-info">
+                    <div class="user-name" id="userName"></div>
+                    <div class="user-role" id="userRole"></div>
+                </div>
+                <button class="btn btn-secondary btn-sm"
+                    onclick="window.location.href='dashboard.html'">Dashboard</button>
+                <button class="btn btn-secondary btn-sm" onclick="api.logout()">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container">
+        <h1>📊 Analytics Dashboard</h1>
+        <p style="color: var(--text-secondary); margin-bottom: var(--spacing-2xl);">
+            Comprehensive overview of issue tracking metrics and performance
+        </p>
+
+        <!-- Summary Metrics -->
+        <div class="metrics-grid" id="metricsGrid">
+            <!-- Metrics will be loaded here -->
+        </div>
+
+        <!-- Charts -->
+        <div class="chart-grid">
+            <div class="glass-card">
+                <h3>Issues by Urgency</h3>
+                <div class="chart-container">
+                    <canvas id="urgencyChart"></canvas>
+                </div>
+            </div>
+
+            <div class="glass-card">
+                <h3>Issues by Status</h3>
+                <div class="chart-container">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-card">
+            <h3>Issues by Machine</h3>
+            <div class="chart-container" style="height: 400px;">
+                <canvas id="machineChart"></canvas>
+            </div>
+        </div>
+
+        <div class="glass-card" style="margin-top: var(--spacing-xl);">
+            <h3>⚡ Technician Reaction Time (This Month)</h3>
+            <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: var(--spacing-md);">
+                Average time from issue creation to acceptance by technician
+            </p>
+            <div class="chart-container" style="height: 400px;">
+                <canvas id="reactionTimeChart"></canvas>
+            </div>
+        </div>
+
+        <div class="glass-card" style="margin-top: var(--spacing-xl);">
+            <h3>Technician Performance</h3>
+            <div class="chart-container" style="height: 400px;">
+                <canvas id="technicianChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+    <script>
+        // Check authentication and role
+        utils.requireAuth();
+        const currentUser = api.getCurrentUser();
+
+        // Check if user has access
+        if (currentUser.role !== 'supervisor' && currentUser.role !== 'team_leader') {
+            alert('Access denied. This page is only for supervisors and team leaders.');
+            window.location.href = 'dashboard.html';
+        }
+
+        // Set user info
+        document.getElementById('userName').textContent = currentUser.name;
+        document.getElementById('userRole').textContent = currentUser.role.replace('_', ' ');
+
+        // Load analytics data
+        async function loadAnalytics() {
+            try {
+                // Get dashboard data
+                const dashboardData = await api.getAnalyticsDashboard();
+
+                // Display metrics
+                const metricsHTML = `
+                    <div class="metric-card fade-in">
+                        <div class="metric-value">${dashboardData.summary.total_issues}</div>
+                        <div class="metric-label">Total Issues</div>
+                    </div>
+                    <div class="metric-card fade-in">
+                        <div class="metric-value">${dashboardData.summary.open_issues}</div>
+                        <div class="metric-label">Open Issues</div>
+                    </div>
+                    <div class="metric-card fade-in">
+                        <div class="metric-value">${dashboardData.summary.high_priority}</div>
+                        <div class="metric-label">High Priority</div>
+                    </div>
+                    <div class="metric-card fade-in">
+                        <div class="metric-value">${dashboardData.summary.avg_resolution_time_hours}h</div>
+                        <div class="metric-label">Avg Resolution Time</div>
+                    </div>
+                `;
+                document.getElementById('metricsGrid').innerHTML = metricsHTML;
+
+                // Create urgency chart
+                createPieChart('urgencyChart', 'Issues by Urgency', dashboardData.by_urgency);
+
+                // Create status chart
+                createPieChart('statusChart', 'Issues by Status', dashboardData.by_status);
+
+                // Get machine data
+                const machineData = await api.getAnalyticsByMachine();
+                createBarChart('machineChart', 'Issues by Machine',
+                    machineData.machines.map(m => m.machine_id),
+                    machineData.machines.map(m => m.total_issues),
+                    'Total Issues'
+                );
+
+                // Get technician data
+                const techData = await api.getAnalyticsByTechnician();
+                createTechnicianChart(techData.technicians);
+
+                // Create reaction time chart
+                await createReactionTimeChart();
+
+            } catch (error) {
+                console.error('Error loading analytics:', error);
+                utils.showNotification('Failed to load analytics data', 'error');
+            }
+        }
+
+        async function createReactionTimeChart() {
+            try {
+                // Get all issues for the current month
+                const data = await api.getIssues();
+                const issues = data.issues;
+
+                // Filter issues from current month that have been accepted
+                const now = new Date();
+                const currentMonth = now.getMonth();
+                const currentYear = now.getFullYear();
+
+                const monthIssues = issues.filter(issue => {
+                    if (!issue.accepted_at || !issue.created_at) return false;
+                    const acceptedDate = new Date(issue.accepted_at);
+                    return acceptedDate.getMonth() === currentMonth &&
+                        acceptedDate.getFullYear() === currentYear;
+                });
+
+                // Group by technician and calculate average reaction time
+                const techReactionTimes = {};
+
+                monthIssues.forEach(issue => {
+                    if (!issue.assigned_tech) return;
+
+                    const techName = issue.assigned_tech.name;
+                    const created = new Date(issue.created_at);
+                    const accepted = new Date(issue.accepted_at);
+                    const reactionMinutes = (accepted - created) / (1000 * 60);
+
+                    if (!techReactionTimes[techName]) {
+                        techReactionTimes[techName] = {
+                            total: 0,
+                            count: 0
+                        };
+                    }
+
+                    techReactionTimes[techName].total += reactionMinutes;
+                    techReactionTimes[techName].count += 1;
+                });
+
+                // Calculate averages and convert to hours
+                const techNames = Object.keys(techReactionTimes);
+                const avgReactionTimes = techNames.map(name => {
+                    const avg = techReactionTimes[name].total / techReactionTimes[name].count;
+                    return (avg / 60).toFixed(2); // Convert to hours
+                });
+
+                // Create chart
+                const ctx = document.getElementById('reactionTimeChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: techNames,
+                        datasets: [{
+                            label: 'Average Reaction Time (hours)',
+                            data: avgReactionTimes,
+                            backgroundColor: 'rgba(99, 102, 241, 0.2)',
+                            borderColor: 'rgba(99, 102, 241, 1)',
+                            borderWidth: 3,
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 6,
+                            pointBackgroundColor: 'rgba(99, 102, 241, 1)',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 2,
+                            pointHoverRadius: 8
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                labels: {
+                                    color: '#e5e7eb',
+                                    font: { size: 12 }
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function (context) {
+                                        const hours = parseFloat(context.parsed.y);
+                                        const mins = Math.round((hours % 1) * 60);
+                                        const wholeHours = Math.floor(hours);
+                                        return `Avg Reaction Time: ${wholeHours}h ${mins}m`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    color: '#9ca3af',
+                                    callback: function (value) {
+                                        return value + 'h';
+                                    }
+                                },
+                                grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                                title: {
+                                    display: true,
+                                    text: 'Hours',
+                                    color: '#9ca3af'
+                                }
+                            },
+                            x: {
+                                ticks: { color: '#9ca3af' },
+                                grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Error creating reaction time chart:', error);
+            }
+        }
+
+        function createPieChart(canvasId, title, data) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(data),
+                    datasets: [{
+                        data: Object.values(data),
+                        backgroundColor: [
+                            'rgba(99, 102, 241, 0.8)',
+                            'rgba(168, 85, 247, 0.8)',
+                            'rgba(236, 72, 153, 0.8)',
+                            'rgba(251, 146, 60, 0.8)'
+                        ],
+                        borderColor: 'rgba(255, 255, 255, 0.1)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: '#e5e7eb',
+                                padding: 15,
+                                font: { size: 12 }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createBarChart(canvasId, title, labels, data, label) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: label,
+                        data: data,
+                        backgroundColor: 'rgba(99, 102, 241, 0.8)',
+                        borderColor: 'rgba(99, 102, 241, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#e5e7eb',
+                                font: { size: 12 }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { color: '#9ca3af' },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        },
+                        x: {
+                            ticks: { color: '#9ca3af' },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createTechnicianChart(technicians) {
+            const ctx = document.getElementById('technicianChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: technicians.map(t => t.technician.name),
+                    datasets: [
+                        {
+                            label: 'Assigned Issues',
+                            data: technicians.map(t => t.assigned_issues),
+                            backgroundColor: 'rgba(99, 102, 241, 0.8)'
+                        },
+                        {
+                            label: 'Closed Issues',
+                            data: technicians.map(t => t.closed_issues),
+                            backgroundColor: 'rgba(34, 197, 94, 0.8)'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#e5e7eb',
+                                font: { size: 12 }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { color: '#9ca3af' },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        },
+                        x: {
+                            ticks: { color: '#9ca3af' },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Load analytics on page load
+        document.addEventListener('DOMContentLoaded', loadAnalytics);
+    </script>
+</body>
+
+</html>
