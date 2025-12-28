@@ -77,78 +77,68 @@ async function initDashboard() {
 }
 
 // Load statistics
-// Load statistics
+// Load statistics - Last 24 hours only
 async function loadStats() {
     try {
-        // Use analytics endpoint for accurate stats
-        const data = await api.getAnalyticsDashboard();
-        const summary = data.summary;
-        const byStatus = data.by_status || {};
+        // Fetch all issues (all statuses) to calculate total
+        const allData = await api.getIssues({
+            per_page: 1000
+        });
+        const allIssues = allData.issues;
 
-        const openedIssues = (byStatus.in_progress || 0) + (byStatus.accepted || 0); // In progress + accepted
-        const reportedIssues = byStatus.reported || 0; // Status == reported
-        const issuesToday = summary.issues_today || 0; // Created today
+        // Filter to last 24 hours
+        const now = new Date();
+        const twentyFourHoursAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));
+
+        const recentIssues = allIssues.filter(i => {
+            const created = new Date(i.created_at);
+            return created >= twentyFourHoursAgo;
+        });
+
+        // Calculate stats from last 24 hours
+        const openedIssues = recentIssues.filter(i => i.status === 'in_progress' || i.status === 'assigned').length;
+        const reportedIssues = recentIssues.filter(i => i.status === 'reported').length;
+        const closedIssues = recentIssues.filter(i => i.status === 'closed').length;
+        const totalIssues = recentIssues.length; // All statuses
 
         // Render stats
         const statsHTML = `
             <div class="stat-card fade-in">
                 <div class="stat-value">${openedIssues}</div>
-                <div class="stat-label">Opened Issues</div>
+                <div class="stat-label">Opened Issues (24h)</div>
             </div>
             <div class="stat-card fade-in">
                 <div class="stat-value">${reportedIssues}</div>
-                <div class="stat-label">Reported Issues</div>
+                <div class="stat-label">Reported Issues (24h)</div>
             </div>
             <div class="stat-card fade-in">
-                <div class="stat-value">${issuesToday}</div>
-                <div class="stat-label">Total Issues Today</div>
+                <div class="stat-value">${closedIssues}</div>
+                <div class="stat-label">Closed Issues (24h)</div>
+            </div>
+            <div class="stat-card fade-in">
+                <div class="stat-value">${totalIssues}</div>
+                <div class="stat-label">Total Issues (24h)</div>
             </div>
         `;
 
         const statsGrid = document.getElementById('statsGrid');
         if (statsGrid) {
             statsGrid.innerHTML = statsHTML;
-            // Ensure grid has 3 columns
-            statsGrid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(200px, 1fr))';
+            // Ensure grid has 4 columns
+            statsGrid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(180px, 1fr))';
         }
     } catch (error) {
         console.error('Error loading stats:', error);
-        // Fallback to basic issues fetch if analytics fails (e.g. permission issue)
-        try {
-            const data = await api.getIssues();
-            const issues = data.issues;
-            const openIssues = issues.filter(i => i.status === 'in_progress' || i.status === 'accepted').length;
-            const reportedIssues = issues.filter(i => i.status === 'reported').length;
-
-            // Calculate today's issues locally
-            const today = new Date();
-            const issuesToday = issues.filter(i => {
-                const created = new Date(i.created_at);
-                return created.getDate() === today.getDate() &&
-                    created.getMonth() === today.getMonth() &&
-                    created.getFullYear() === today.getFullYear();
-            }).length;
-
-            const statsHTML = `
-                <div class="stat-card fade-in">
-                    <div class="stat-value">${openIssues}</div>
-                    <div class="stat-label">Opened Issues</div>
-                </div>
-                <div class="stat-card fade-in">
-                    <div class="stat-value">${reportedIssues}</div>
-                    <div class="stat-label">Reported Issues</div>
-                </div>
-                <div class="stat-card fade-in">
-                    <div class="stat-value">${issuesToday}</div>
-                    <div class="stat-label">Total Issues Today</div>
-                </div>
-            `;
-            const statsGrid = document.getElementById('statsGrid');
-            if (statsGrid) {
-                statsGrid.innerHTML = statsHTML;
-            }
-        } catch (fallbackError) {
-            console.error('Error loading stats fallback:', fallbackError);
+        // Fallback with empty stats
+        const statsHTML = `
+            <div class="stat-card fade-in"><div class="stat-value">0</div><div class="stat-label">Opened Issues (24h)</div></div>
+            <div class="stat-card fade-in"><div class="stat-value">0</div><div class="stat-label">Reported Issues (24h)</div></div>
+            <div class="stat-card fade-in"><div class="stat-value">0</div><div class="stat-label">Closed Issues (24h)</div></div>
+            <div class="stat-card fade-in"><div class="stat-value">0</div><div class="stat-label">Total Issues (24h)</div></div>
+        `;
+        const statsGrid = document.getElementById('statsGrid');
+        if (statsGrid) {
+            statsGrid.innerHTML = statsHTML;
         }
     }
 }
@@ -169,12 +159,22 @@ async function loadIssues(page = 1) {
         const filters = {
             page: page,
             per_page: 100,
-            // Default: Show only reported, assigned, in_progress (exclude closed)
-            status: 'reported,assigned,in_progress'
+            // Default: Show only reported and in_progress (exclude assigned and closed)
+            status: 'reported,in_progress'
         };
 
         const data = await api.getIssues(filters);
-        allIssues = data.issues;
+
+        // Filter to show only issues from the last 24 hours
+        const now = new Date();
+        const twentyFourHoursAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));
+
+        const recentIssues = data.issues.filter(issue => {
+            const createdAt = new Date(issue.created_at);
+            return createdAt >= twentyFourHoursAgo;
+        });
+
+        allIssues = recentIssues;
         renderIssuesTable(allIssues);
         // Pagination removed for Recent Issues as requested
         // renderPagination(data, 'all-issues');
@@ -588,7 +588,7 @@ function setupEventListeners() {
     // Urgency and date filters (only if they exist)
     const urgencyFilter = document.getElementById('urgencyFilter');
     const dateFilter = document.getElementById('dateFilter');
-    
+
     if (urgencyFilter) {
         urgencyFilter.addEventListener('change', (e) => {
             currentFilters.urgency = e.target.value;
@@ -665,7 +665,7 @@ function connectWebSocket() {
             loadIssues();
             loadStats();
         });
-        
+
         console.log('✓ WebSocket connected');
     } catch (error) {
         console.warn('WebSocket not available, using polling instead');
@@ -750,7 +750,7 @@ async function handleCreateMachine(e) {
     e.stopPropagation();
 
     console.log('Creating machine...');
-    
+
     const name = document.getElementById('machineNameInput').value;
     const location = document.getElementById('machineLocation').value;
     const status = document.getElementById('machineStatus').value;
@@ -775,7 +775,7 @@ async function handleCreateMachine(e) {
         console.error('Error creating machine:', error);
         utils.showNotification(error.message || 'Failed to create machine', 'error');
     }
-    
+
     return false;
 }
 // Delete Machine

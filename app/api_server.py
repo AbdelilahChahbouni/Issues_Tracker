@@ -555,10 +555,23 @@ def create_issue(current_user):
         return jsonify({'error': 'Invalid urgency level'}), 400
     
     # Generate issue ID
-    last_issue = Issue.query.order_by(Issue.id.desc()).first()
-    if last_issue:
-        last_num = int(last_issue.issue_id.replace('ISS', ''))
-        new_issue_id = f'ISS{last_num + 1:03d}'
+    # Find the highest ISS number from existing issues
+    all_issues = Issue.query.all()
+    iss_numbers = []
+    for issue in all_issues:
+        # Only consider issues that follow the ISS### format
+        if issue.issue_id.startswith('ISS'):
+            try:
+                num_str = issue.issue_id.replace('ISS', '')
+                if num_str.isdigit():
+                    iss_numbers.append(int(num_str))
+            except (ValueError, AttributeError):
+                # Skip issues with invalid format
+                pass
+    
+    if iss_numbers:
+        next_num = max(iss_numbers) + 1
+        new_issue_id = f'ISS{next_num:03d}'
     else:
         new_issue_id = 'ISS001'
     
