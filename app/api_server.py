@@ -829,14 +829,41 @@ def export_issues():
         })
         
     if export_format == 'excel':
-        import pandas as pd
-        df = pd.DataFrame(data)
+        from openpyxl import Workbook
+        from openpyxl.utils import get_column_letter
         
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='Issues')
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Issues"
+        
+        if data:
+            # Write headers
+            headers = list(data[0].keys())
+            for col, header in enumerate(headers, 1):
+                ws.cell(row=1, column=col, value=header)
             
+            # Write data
+            for row_idx, item in enumerate(data, 2):
+                for col_idx, header in enumerate(headers, 1):
+                    ws.cell(row=row_idx, column=col_idx, value=item[header])
+            
+            # Auto-adjust column widths
+            for col_idx, col_cells in enumerate(ws.columns, 1):
+                max_length = 0
+                column = get_column_letter(col_idx)
+                for cell in col_cells:
+                    try:
+                        if len(str(cell.value)) > max_length:
+                            max_length = len(str(cell.value))
+                    except:
+                        pass
+                adjusted_width = (max_length + 2)
+                ws.column_dimensions[column].width = adjusted_width
+
+        output = io.BytesIO()
+        wb.save(output)
         output.seek(0)
+        
         return send_file(
             output,
             mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

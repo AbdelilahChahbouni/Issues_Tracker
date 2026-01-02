@@ -10,7 +10,6 @@ python-engineio==4.8.0
 python-socketio==5.10.0
 qrcode==7.4.2
 Pillow==10.1.0
-pandas==2.1.4
 openpyxl==3.1.2
 fpdf==1.7.2
 gunicorn==21.2.0
